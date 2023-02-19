@@ -24,7 +24,7 @@ let make_worker url =
     res_fut worker data
   in
   Ev.listen Brr_io.Message.Ev.message on_message @@
-    Worker.as_target worker.worker;
+    Worker.as_target worker.worker |> ignore;
   worker
 
 (* todo share that with worker *)
@@ -40,6 +40,14 @@ let query ~action worker (*todo: other queries*) =
 
 let query_errors worker (source : string) =
   let open Fut.Syntax in
+  let source =
+    (* Hack to make Merlin ignore toplevel directives *)
+    source |> String.split_on_char '\n'
+    |> List.map (fun s ->
+           if String.starts_with ~prefix:"#" s
+           then String.make (String.length s) ' '
+           else s)
+    |> String.concat "\n" in
   let action = Protocol.All_errors source in
   let+ data : Protocol.answer = query ~action worker in
   Console.(log ["Received errors:";  data]);

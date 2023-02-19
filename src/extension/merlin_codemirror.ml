@@ -10,14 +10,19 @@ let linter worker = fun view ->
   List.map (fun Protocol.{ kind; loc; main; sub = _; source } ->
     let from = loc.loc_start.pos_cnum in
     let to_ = loc.loc_end.pos_cnum in
-    let source = Protocol.report_source_to_string source in
-    let severity = match kind with
-      | Report_error
-      | Report_warning_as_error _
-      | Report_alert_as_error _ -> Lint.Diagnostic.Error
-      | Report_warning _ -> Lint.Diagnostic.Warning
-      | Report_alert _ -> Lint.Diagnostic.Info
+    let severity = match source, kind with
+      | Warning, _ -> Lint.Diagnostic.Warning
+      | _, Report_error
+      | _, Report_warning_as_error _
+      | _, Report_alert_as_error _ -> Lint.Diagnostic.Error
+      | _, Report_warning _ -> Lint.Diagnostic.Warning
+      | _, Report_alert _ -> Lint.Diagnostic.Info
     in
+    let source = Protocol.report_source_to_string source in
+    let source = match kind with
+      | Report_warning_as_error _ -> source ^ "(warning-as-error)"
+      | Report_alert_as_error _ -> source ^ "(alert-as-error)"
+      | _ -> source in
     Lint.Diagnostic.create ~source ~from ~to_ ~severity ~message:main ()
   ) result
   |> Array.of_list
@@ -25,14 +30,14 @@ let linter worker = fun view ->
 let keywords = List.map
   (fun label ->
     Autocomplete.Completion.create ~label ~type_:"keyword" ())
-    [
+    ([
       "as"; "do"; "else"; "end"; "exception"; "fun"; "functor"; "if"; "in";
       "include"; "let"; "of"; "open"; "rec"; "struct"; "then"; "type"; "val";
       "while"; "with"; "and"; "assert"; "begin"; "class"; "constraint";
       "done"; "downto"; "external"; "function"; "initializer"; "lazy";
       "match"; "method"; "module"; "mutable"; "new"; "nonrec"; "object";
       "private"; "sig"; "to"; "try"; "value"; "virtual"; "when";
-    ]
+    ] |> List.filter (fun s -> String.length s > 4))
 
 let merlin_completion worker = fun ctx ->
   let open Fut.Syntax in
@@ -54,7 +59,7 @@ let autocomplete worker =
     Autocomplete.Source.from_list keywords;
     Autocomplete.Source.create @@ merlin_completion worker]
 in
-  let config = Autocomplete.config () ~override in
+  let config = Autocomplete.config () ~default_key_map:false ~override in
   Autocomplete.create ~config ()
 
 let tooltip_on_hover worker =

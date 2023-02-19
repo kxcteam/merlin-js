@@ -1,3 +1,9 @@
+let () =
+  if not (Sys.file_exists "/work") then (
+    Sys.mkdir "/work" 0777
+  );
+  Sys.chdir "/work"
+
 open Merlin_utils
 open Std
 open Merlin_kernel
@@ -6,12 +12,23 @@ module Location = Ocaml_parsing.Location
 let config =
   let initial = Mconfig.initial in
   { initial with
+    ocaml = { initial.ocaml with
+      open_modules =
+        "Kxclib"
+        :: "Kxclib.Log0"
+        :: "Camlrepl_pervasives"
+        :: initial.ocaml.open_modules
+    };
     merlin = { initial.merlin with
-      stdlib = Some "/static/stdlib" }}
+      stdlib = Some "/static/stdlib";
+      source_path = ["/work"];
+      cmi_path = "/exlib" :: initial.merlin.cmi_path
+  }}
 
 let make_pipeline source =
   Mpipeline.make config source
 
+let src_index_counter = ref 0
 let dispatch source query  =
   let pipeline = make_pipeline source in
   Mpipeline.with_pipeline pipeline @@ fun () -> (
