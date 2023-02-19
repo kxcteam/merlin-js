@@ -5,7 +5,7 @@
   (javascript_files stubs.js))
  (preprocess (pps js_of_ocaml-ppx))
  (libraries
-  kxclib
+  kxclib unix
   static_files
   protocol
   merlin-lib.kernel
